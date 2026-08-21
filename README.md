@@ -10,6 +10,10 @@ desktop software or drivers required beyond a serial-to-USB adapter.
 > [`architektura.md`](architektura.md) for the full development log and
 > protocol reverse-engineering notes — currently in Czech).
 
+**[▶ Run it now](https://jrydval.github.io/hp48-web-kermit/kermit-test.html)**
+— hosted via GitHub Pages, no download needed (requires Chrome or Edge, see
+[Requirements](#requirements) below).
+
 ## Features
 
 - **Connect** to the calculator over a serial port from Chrome/Edge (Web
