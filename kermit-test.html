@@ -128,7 +128,6 @@
   #fileListArea .free-mem { color: var(--muted); font-size: 11px; margin: 0 0 8px; }
   #fileListArea table {
     width: 100%;
-    table-layout: fixed;
     border-collapse: collapse;
     font-family: "SF Mono", Menlo, Consolas, monospace;
     font-size: 12px;
@@ -143,21 +142,17 @@
   #fileListArea td {
     padding: 7px 10px 7px 0;
     border-bottom: 1px solid var(--border);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
   #fileListArea tbody tr:last-child td { border-bottom: none; }
-  /* table-layout:fixed makes column width purely a colgroup/CSS matter, so
-     this can stay flex (a plain table-cell display:flex can otherwise
-     confuse table-layout:auto's column-width algorithm into massively
-     over-allocating width to this column - that's what caused the Size/
-     Type/CRC columns to bunch up right after Name instead of lining up
-     under their headers). */
-  #fileListArea td.name { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  #fileListArea td.name span { overflow: hidden; text-overflow: ellipsis; }
+  /* .name-wrap (not td.name itself) carries the flex layout - a plain
+     table-cell with display:flex confuses table-layout:auto's column-width
+     algorithm into massively over-allocating width to that column, which is
+     what caused Size/Type/CRC to bunch up far from their headers instead of
+     the Name column just sizing to its actual (short) content like every
+     other column already does. */
+  #fileListArea .name-wrap { display: flex; align-items: center; gap: 8px; }
   #fileListArea tr.is-dir td.name { color: var(--accent); font-weight: 600; }
-  #fileListArea td.actions { text-align: right; white-space: nowrap; overflow: visible; }
+  #fileListArea td.actions { text-align: right; white-space: nowrap; }
 
   .log-tray {
     height: 250px;
@@ -1116,13 +1111,12 @@ function renderFileList(listing) {
         ? ""
         : `<button class="icon-btn ghost" onclick="event.stopPropagation(); getFile('${escapeAttr(e.name)}')" title="Download ${escapeAttr(displayName)}">${ICON_DOWNLOAD}</button> `;
       const delBtn = `<button class="icon-btn ghost" onclick="event.stopPropagation(); purgeVariable('${escapeAttr(e.name)}')" title="Delete ${escapeAttr(displayName)}" style="color:var(--err);">${ICON_TRASH}</button>`;
-      return `<tr class="${e.isDir ? "is-dir" : ""}"${clickable}><td class="name">${e.isDir ? ICON_FOLDER : ICON_FILE} <span>${escapeHtml(displayName)}</span></td><td>${escapeHtml(e.size)}</td><td>${escapeHtml(e.type)}</td><td>${escapeHtml(e.crc)}</td><td class="actions">${getBtn}${delBtn}</td></tr>`;
+      return `<tr class="${e.isDir ? "is-dir" : ""}"${clickable}><td class="name"><span class="name-wrap">${e.isDir ? ICON_FOLDER : ICON_FILE} ${escapeHtml(displayName)}</span></td><td>${escapeHtml(e.size)}</td><td>${escapeHtml(e.type)}</td><td>${escapeHtml(e.crc)}</td><td class="actions">${getBtn}${delBtn}</td></tr>`;
     })
     .join("");
   area.innerHTML = `
     <div class="free-mem">Free memory: ${escapeHtml(String(listing.freeMemory))} B &middot; click a folder to enter it, or use Home/Up in the toolbar</div>
     <table>
-      <colgroup><col style="width:38%"><col style="width:14%"><col style="width:20%"><col style="width:16%"><col style="width:12%"></colgroup>
       <thead><tr><th>Name</th><th>Size</th><th>Type</th><th>CRC</th><th></th></tr></thead>
       <tbody>${rows || '<tr><td colspan="5">(empty directory)</td></tr>'}</tbody>
     </table>
