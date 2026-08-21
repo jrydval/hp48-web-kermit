@@ -251,6 +251,8 @@ Nakonec byl připraven `README.md` pro GitHub (anglicky, ve shodě s teď anglic
 
 **Skutečná oprava:** `display: flex` přesunut z `td.name` samotné na nový vnitřní `<span class="name-wrap">` obalující ikonku+jméno; `td.name` zůstává obyčejná table-cell buňka (žádný `display` override). Tím se sloupec Name zase přirozeně přizpůsobí svému skutečnému obsahu (jako všechny ostatní sloupce), a `table-layout`/`colgroup` už nejsou potřeba – vráceno na výchozí `table-layout: auto`. Ověřeno reprodukcí přesných dat z uživatelova druhého screenshotu (adresář DEV: Y, X, C, P, IERR, EQ, PPAR, OBVOD) i s uměle dlouhým jménem proměnné (35 znaků) – v obou případech se sloupce zarovnaly správně. **Zatím netestováno na hardwaru** (ověřeno jen vizuálně v headless Chrome s testovacími daty).
 
+**Sedmadvacátá změna – „Name on calculator" se po prvním použití dál needitovalo podle vybraného souboru.** Handler `putFile`'s `change` event nastavoval `putAsName.value = f.name` jen podmínečně (`if (f && !$("putAsName").value)`), tj. jen když bylo pole prázdné. Při prvním „Choose file…" se tedy pole vyplnilo správně, ale při každém dalším výběru souboru (pole už nebylo prázdné, obsahovalo předchozí jméno) se ponechala stará hodnota. Uživatel čekal, že se pole bude odvozovat od vybraného souboru pokaždé. Oprava: podmínka zjednodušena na `if (f) $("putAsName").value = f.name;` – teď se pole při každém výběru souboru přepíše jménem nově vybraného souboru (i pokud uživatel předtím jméno ručně upravil). **Zatím netestováno na hardwaru.**
+
 ## 12. Zdroje
 
 - [HP-48 Kermit Hints and Tips – Columbia University](https://www.columbia.edu/kermit/hp48.html)

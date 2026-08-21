@@ -1516,7 +1516,7 @@ $("newDirName").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$
 $("btnChooseFile").addEventListener("click", () => { $("putFile").click(); });
 $("putFile").addEventListener("change", () => {
   const f = $("putFile").files && $("putFile").files[0];
-  if (f && !$("putAsName").value) $("putAsName").value = f.name;
+  if (f) $("putAsName").value = f.name;
   $("chooseFileLabel").textContent = f ? f.name : "Choose file…";
 });
 
