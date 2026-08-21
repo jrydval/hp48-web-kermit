@@ -1,0 +1,1520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HP-48 Web Kermit</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel2: #1a1e27;
+    --border: #2a2f3a;
+    --text: #d8dee9;
+    --muted: #7b8494;
+    --accent: #5fb3ff;
+    --ok: #6fd88a;
+    --warn: #f5c15c;
+    --err: #ff6b6b;
+    --tx: #5fb3ff;
+    --rx: #6fd88a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+  a { color: var(--accent); }
+
+  .icon, .icon-lg { flex-shrink: 0; }
+  .icon { width: 15px; height: 15px; }
+  .icon-lg { width: 18px; height: 18px; }
+
+  label { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  select, input[type=number], input[type=text] {
+    background: #0f1115;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 5px 8px;
+    font-size: 12px;
+  }
+  button {
+    background: #232838;
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 7px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  button:hover:not(:disabled) { border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button.primary { background: #1b3a5c; border-color: var(--accent); }
+  button.ghost { background: transparent; }
+  button.icon-btn { padding: 6px; }
+  button.block { width: 100%; justify-content: center; }
+
+  /* ---------- sidebar ---------- */
+  .sidebar {
+    width: 264px;
+    flex-shrink: 0;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 16px;
+    gap: 20px;
+    overflow-y: auto;
+  }
+  .brand-title { font-size: 15px; font-weight: 600; }
+  .brand-sub { color: var(--muted); font-size: 11px; margin-top: 2px; }
+  .status { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--err); flex-shrink: 0; }
+  .dot.on { background: var(--ok); box-shadow: 0 0 0 3px rgba(111, 216, 138, 0.15); }
+  .conn-block { display: flex; flex-direction: column; gap: 10px; }
+  .divider { border-top: 1px solid var(--border); }
+  .section-label { font-size: 10px; letter-spacing: 0.06em; color: var(--muted); font-weight: 600; }
+  .actions-block, .sidebar details .settings-body { display: flex; flex-direction: column; gap: 10px; }
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 2px 9px; }
+  .checkbox-row input { width: 14px; height: 14px; padding: 0; }
+  .spacer { flex: 1; }
+  .hint { font-size: 11px; color: var(--muted); line-height: 1.5; }
+
+  details.disclosure { font-size: 11px; }
+  details.disclosure > summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 9px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  details.disclosure > summary::-webkit-details-marker { display: none; }
+  details.disclosure > summary .chev { transition: transform 0.15s; }
+  details.disclosure[open] > summary .chev { transform: rotate(90deg); }
+  details.disclosure > summary .summary-text { display: flex; align-items: center; gap: 7px; }
+  .settings-body { padding: 10px 2px 0; }
+  .settings-body label { flex-direction: column; align-items: stretch; gap: 4px; }
+
+  /* ---------- main ---------- */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+  .toolbar {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .vdiv { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+  .breadcrumb { display: flex; align-items: center; gap: 6px; font-family: "SF Mono", Menlo, Consolas, monospace; font-size: 12px; flex-wrap: wrap; }
+  .breadcrumb .seg { color: var(--muted); }
+  .breadcrumb .seg.current { color: var(--text); font-weight: 600; }
+  .breadcrumb .sep { color: var(--muted); }
+
+  #fileListArea { flex: 1 1 auto; overflow-y: auto; padding: 10px 20px 14px; }
+  #fileListArea .free-mem { color: var(--muted); font-size: 11px; margin: 0 0 8px; }
+  #fileListArea table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+  }
+  #fileListArea th {
+    text-align: left;
+    color: var(--muted);
+    font-weight: 600;
+    padding: 6px 10px 6px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #fileListArea td {
+    padding: 7px 10px 7px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #fileListArea tbody tr:last-child td { border-bottom: none; }
+  #fileListArea td.name { display: flex; align-items: center; gap: 8px; }
+  #fileListArea tr.is-dir td.name { color: var(--accent); font-weight: 600; }
+  #fileListArea td.actions { text-align: right; white-space: nowrap; }
+
+  .log-tray {
+    height: 250px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    background: var(--panel2);
+    display: flex;
+    flex-direction: column;
+  }
+  .log-tray-header {
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  #log {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px 20px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .line { margin-bottom: 2px; }
+  .t-info { color: var(--muted); }
+  .t-tx { color: var(--tx); }
+  .t-rx { color: var(--rx); }
+  .t-err { color: var(--err); }
+  .t-warn { color: var(--warn); }
+  .t-decoded { color: #c9a6ff; }
+  .ts { color: var(--muted); margin-right: 8px; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+
+  <div>
+    <div class="brand-title">HP-48 Web Kermit</div>
+    <div class="brand-sub">Kermit protocol over Web Serial</div>
+  </div>
+
+  <div class="conn-block">
+    <div class="status">
+      <span class="dot" id="dot"></span>
+      <span id="statusText">Disconnected</span>
+    </div>
+
+    <button id="btnConnect" class="primary block">Connect</button>
+    <button id="btnDisconnect" class="block" disabled>Disconnect</button>
+
+    <details class="disclosure">
+      <summary>
+        <span class="summary-text">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+          Connection settings
+        </span>
+        <svg class="icon chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </summary>
+      <div class="settings-body">
+        <label>Baud rate
+          <select id="baud">
+            <option value="9600" selected>9600</option>
+            <option value="4800">4800</option>
+            <option value="2400">2400</option>
+            <option value="1200">1200</option>
+          </select>
+        </label>
+        <label>MAXL (packet length)
+          <input type="number" id="maxl" value="80" min="10" max="94">
+        </label>
+        <label>TIMO (s)
+          <input type="number" id="timo" value="10" min="1" max="60">
+        </label>
+      </div>
+    </details>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="actions-block">
+    <div class="section-label">CONNECTION ACTIONS</div>
+    <button id="btnFinish" class="ghost block" disabled title="Sends a fresh Send-Init and immediately ends it with a Break – returns the calculator to an idle state, even if something got stuck mid-transfer. Every other action (GET, LIST, CD, PURGE, PUT) already negotiates its own Send-Init automatically, so this button is only needed to manually recover a stuck connection.">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+      Reset connection (Break)
+    </button>
+    <label class="checkbox-row" title="Off: hides the raw byte-by-byte RX dump, messages about bytes discarded outside a packet, and periodic NAK notices (the calculator uses them just to signal it's waiting for a Send-Init). On: full record for debugging.">
+      <input type="checkbox" id="detailedLog"> Detailed log
+    </label>
+    <button id="btnClear" class="ghost block">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>
+      Clear log
+    </button>
+  </div>
+
+  <div class="divider"></div>
+
+  <details class="disclosure">
+    <summary>
+      <span class="summary-text">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>
+        Manual transfer
+      </span>
+      <svg class="icon chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+    </summary>
+    <div class="settings-body">
+      <label>Variable to download
+        <input type="text" id="getFilename" value="C">
+      </label>
+      <button id="btnGet" class="block" disabled>Download (GET)</button>
+      <div class="divider"></div>
+      <label>Wait up to (s)
+        <input type="number" id="recvTimeout" value="60" min="5" max="300">
+      </label>
+      <button id="btnRecv" class="block" disabled title="Passive fallback: waits for the calculator to initiate a SEND on its own, instead of the app requesting a GET.">Wait to receive (SEND from calculator)</button>
+    </div>
+  </details>
+
+  <div class="spacer"></div>
+
+  <div class="hint">Start the Kermit server on the calculator first: I/O &rarr; SRVR &rarr; SERVE. Requires Chrome/Edge and a secure context (HTTPS or localhost).</div>
+</aside>
+
+<div class="main">
+
+  <div class="toolbar">
+    <button id="btnList" class="ghost" disabled title="List files (REMOTE DIRECTORY)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      List files
+    </button>
+    <div class="vdiv"></div>
+    <button id="btnHome" class="icon-btn ghost" disabled title="Home (HOME)">
+      <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M9 22V12h6v10"/></svg>
+    </button>
+    <button id="btnUp" class="icon-btn ghost" disabled title="Up one level (UPDIR)">
+      <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+    </button>
+    <div class="vdiv"></div>
+    <div class="breadcrumb" id="breadcrumb"><span class="seg current">HOME</span></div>
+    <span id="downloadArea"></span>
+    <div class="spacer"></div>
+    <input type="text" id="newDirName" style="width:150px" placeholder="New folder name">
+    <button id="btnCrdir" class="ghost" disabled title="Create a new subdirectory here (CRDIR)">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M12 11v4M10 13h4"/></svg>
+      New folder
+    </button>
+    <div class="vdiv"></div>
+    <button id="btnChooseFile" class="ghost" type="button">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10 12 4l5 6M12 4v13"/></svg>
+      <span id="chooseFileLabel">Choose file&hellip;</span>
+    </button>
+    <input type="file" id="putFile" style="display:none">
+    <input type="text" id="putAsName" value="" style="width:130px" placeholder="Name on calculator">
+    <button id="btnPut" class="primary icon-btn" disabled title="Send (PUT)">
+      <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10 12 4l5 6M12 4v13"/></svg>
+    </button>
+  </div>
+
+  <div id="fileListArea"></div>
+
+  <div class="log-tray">
+    <div class="log-tray-header">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m4 17 6-5-6-5M12 19h8"/></svg>
+      LOG
+    </div>
+    <div id="log"></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+ * Kermit protocol – minimal encode/decode helpers
+ * Note: this is a diagnostic script for verifying HP-48 behavior on real
+ * hardware (phase 1 of the architecture). Once the behavior is confirmed,
+ * this logic will move into the kermit/ module described in architektura.md.
+ * ========================================================================= */
+
+const CTRL_A = 0x01; // MARK
+const CR = 0x0d;     // END
+
+// tochar/unchar: maps 0-94 <-> printable ASCII (32-126)
+function tocharSafe(n) {
+  if (n < 0 || n > 94) throw new Error(`tochar: value out of range 0-94: ${n}`);
+  return String.fromCharCode(n + 32);
+}
+function unchar(ch) { return ch.charCodeAt(0) - 32; }
+
+// ctl(): toggles bit 6 (0x40) – used for control-quoting
+function ctl(code) { return code ^ 0x40; }
+
+// checksum type 1 (6-bit) per the Kermit spec:
+// c1 = (sum + ((sum & 192) >> 6)) & 63
+function checksumType1(bytes) {
+  let sum = 0;
+  for (const b of bytes) sum += b;
+  const c = (sum + ((sum & 192) >> 6)) & 63;
+  return tocharSafe(c);
+}
+
+// Builds a complete Kermit packet (short form, MAXL <= 94, no long packets –
+// the HP-48 doesn't support long packets, see architektura.md)
+function buildPacket(seq, type, dataStr, checkType = 1) {
+  if (checkType !== 1) throw new Error("Only block check type 1 is implemented so far (it's mandatory for the S-packet per spec anyway).");
+  const seqCh = tocharSafe(seq & 0x3f);
+  const typeCh = type;
+  const bodyForLen = seqCh + typeCh + dataStr; // everything except MARK, LEN and CHECK
+  const len = bodyForLen.length + 1; // +1 = length of the CHECK field (type 1 = 1 char)
+  const lenCh = tocharSafe(len);
+  const check = checksumType1(Array.from(lenCh + bodyForLen).map(c => c.charCodeAt(0)));
+  const packetStr = lenCh + bodyForLen + check;
+  const bytes = new Uint8Array(packetStr.length + 2);
+  bytes[0] = CTRL_A;
+  for (let i = 0; i < packetStr.length; i++) bytes[i + 1] = packetStr.charCodeAt(i);
+  bytes[bytes.length - 1] = CR;
+  return bytes;
+}
+
+// Builds the DATA field for Send-Init / ACK-to-Send-Init with conservative
+// settings for the HP-48 (see architektura.md, chapters 6 and 11 – verified
+// on hardware): small MAXL, block check 1 (confirmed by testing, the
+// calculator itself offers CHKT='1'), no long packets, no sliding window
+// (REPT disabled), 8-bit prefixing disabled (QBIN='N', the calculator
+// didn't use it in testing either).
+function buildSendInitData(opts) {
+  const maxl = tocharSafe(opts.maxl);                 // field 1: MAXL
+  const timo = tocharSafe(opts.timo);                  // field 2: TIMO
+  const npad = tocharSafe(0);                          // field 3: NPAD (0 = no padding)
+  const padc = String.fromCharCode(ctl(0));             // field 4: PADC (NUL, control-quoted)
+  const eol = tocharSafe(CR);                           // field 5: EOL = CR
+  const qctl = "#";                                     // field 6: QCTL prefix
+  const qbin = "N";                                     // field 7: no 8-bit prefixing (assumes an 8-bit-clean line)
+  const chkt = "1";                                     // field 8: preferred block check
+  const rept = " ";                                     // field 9: repeat-prefix disabled (space = none)
+  return maxl + timo + npad + padc + eol + qctl + qbin + chkt + rept;
+}
+function buildSendInit(seq, opts) {
+  return buildPacket(seq, "S", buildSendInitData(opts));
+}
+
+// Unpacks (unquotes) the DATA field into an array of raw bytes (0-255),
+// not a JS string – for file downloads we want exact bytes, not a text
+// interpretation. Only handles control-quoting (QCTL + ctl(x)); 8-bit
+// prefixing isn't implemented, because the calculator offered QBIN='N'
+// in testing (see architektura.md, chapters 6 and 11). If bytes >=128
+// appear in the data without a prefix, we take them at face value (the
+// link is evidently 8-bit clean).
+function unquoteToBytes(data, qctl = "#") {
+  const out = [];
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] === qctl && i + 1 < data.length) {
+      i++;
+      out.push(data[i] === qctl ? qctl.charCodeAt(0) : ctl(data.charCodeAt(i)));
+    } else {
+      out.push(data.charCodeAt(i));
+    }
+  }
+  return out;
+}
+
+// The reverse of unquoteToBytes – packs raw bytes (0-255) into a printable
+// DATA field for sending (PUT). Mirrors what we confirmed when reading data
+// from the calculator (see architektura.md, chapter 11, fourth test):
+// control characters (0-31), DEL (127) and the so-called C1 range
+// (128-159) get control-quoted (QCTL + ctl(byte) – ctl() is its own
+// inverse, so the same function works both ways); ordinary "high" HP
+// characters like «/» (0xAB/0xBB) stay raw, just like the calculator sent
+// them to us. This part (the exact boundary of the quoted range) is
+// derived from just one observed byte (0x8D) during a GET – for PUT we
+// don't yet have it confirmed on hardware, see chapter 11.
+function needsQuote(byteVal, qctlCode) {
+  return byteVal === qctlCode || byteVal < 32 || byteVal === 127 || (byteVal >= 128 && byteVal <= 159);
+}
+function quoteBytes(bytes, qctl = "#") {
+  const qctlCode = qctl.charCodeAt(0);
+  let out = "";
+  for (const b of bytes) {
+    out += needsQuote(b, qctlCode) ? qctl + String.fromCharCode(ctl(b)) : String.fromCharCode(b);
+  }
+  return out;
+}
+// Shorthand for quoteBytes() when the bytes are already a JS string (where
+// each character represents one byte 0-255) instead of an array of
+// numbers – used for outgoing REMOTE HOST commands (C packet), so that
+// special HP-48 bytes (128-159) get sent safely if a file/variable name
+// contains one (see the '∑PAR' PURGE bugfix, chapter 11).
+function quoteText(text, qctl = "#") {
+  return quoteBytes(Array.from(text).map((c) => c.charCodeAt(0)), qctl);
+}
+
+// HP-48 (RPL) character set, range 128-159 (0x80-0x9F): the calculator
+// doesn't use this range as standard C1 control codes, but as its own set
+// of math/Greek symbols (Σ, √, →, α, ...) – which is why, without mapping,
+// the browser renders it as an invisible/blank character (exactly that
+// "bigger gap" before "PAR" in ΣPAR). Source: HP 48GX Character Set,
+// https://www.azimonti.com/hp48gx/character-set/. The 160-255 range
+// already matches ordinary Latin-1/Unicode 1:1 (which is why e.g. «/»
+// displayed correctly even without mapping), and 0-31 are ordinary control
+// characters – so neither of those two ranges gets mapped here. Side note:
+// this table also retroactively confirms our earlier (previously just
+// "probable") guess about byte 0x8D in variable C's content – it really is
+// the RPL arrow "→".
+const HP48_SPECIAL_CHARS = {
+  0x80: "∟", 0x81: "x̅", 0x82: "∇", 0x83: "√", 0x84: "∫", 0x85: "∑",
+  0x86: "▶", 0x87: "π", 0x88: "∂", 0x89: "≤", 0x8a: "≥", 0x8b: "≠",
+  0x8c: "α", 0x8d: "→", 0x8e: "←", 0x8f: "↓", 0x90: "↑",
+  0x91: "γ", 0x92: "δ", 0x93: "ε", 0x94: "η", 0x95: "θ", 0x96: "λ",
+  0x97: "ρ", 0x98: "σ", 0x99: "τ", 0x9a: "ω", 0x9b: "Δ", 0x9c: "Π",
+  0x9d: "Ω", 0x9e: "■", 0x9f: "∞",
+};
+function hp48ToUnicode(text) {
+  let out = "";
+  for (const ch of text) {
+    out += HP48_SPECIAL_CHARS[ch.charCodeAt(0)] || ch;
+  }
+  return out;
+}
+
+// The response to a REMOTE HOST command is always just a "stack snapshot"
+// (see architektura.md, chapter 11) – when the command fails (e.g. PURGE
+// on a non-empty directory), the calculator puts text starting with
+// "Error: <reason>" on the stack, followed by whatever was already there
+// (lines shaped like "N:   value"). This function extracts just that
+// leading message, so the app doesn't show the user a jumbled mix of the
+// error and unrelated stack content.
+function extractHp48ErrorHeadline(text) {
+  return text.trim().split(/\s+\d+:\s+/)[0].trim();
+}
+
+// Parses the Send-Init packet's DATA field into a readable object
+function parseSendInitData(data) {
+  if (data.length < 6) return { raw: data, warning: "DATA shorter than the mandatory part (6 fields)" };
+  const out = { raw: data };
+  out.MAXL = unchar(data[0]);
+  out.TIMO = unchar(data[1]);
+  out.NPAD = unchar(data[2]);
+  out.PADC = String.fromCharCode(ctl(data.charCodeAt(3)));
+  out.EOL = unchar(data[4]);
+  out.QCTL = data[5];
+  if (data.length > 6) out.QBIN = data[6];
+  if (data.length > 7) out.CHKT = data[7];
+  if (data.length > 8) out.REPT = data[8] === " " ? "(disabled)" : data[8];
+  return out;
+}
+
+// The simplest "unquote" for readable display of text data (e.g. an E
+// packet), where control characters are encoded as QCTL + ctl(char).
+function unquoteText(data, qctl = "#") {
+  let out = "";
+  for (let i = 0; i < data.length; i++) {
+    if (data[i] === qctl && i + 1 < data.length) {
+      i++;
+      out += data[i] === qctl ? qctl : String.fromCharCode(ctl(data.charCodeAt(i)));
+    } else {
+      out += data[i];
+    }
+  }
+  return out;
+}
+
+function packetTypeName(t) {
+  const names = {
+    S: "Send-Init", F: "File Header", D: "Data", Z: "EOF", B: "Break (end)",
+    Y: "ACK", N: "NAK", E: "Error", A: "Attributes", R: "Get (Receive-Init)",
+    C: "Command (REMOTE HOST)", G: "Generic",
+  };
+  return names[t] || "unknown type";
+}
+
+// Parses one Kermit packet from raw bytes (expects MARK at the start).
+// Returns { seq, type, data, checkOk, consumed } or null if the packet
+// isn't complete yet.
+function tryParsePacket(bytes) {
+  if (bytes.length < 1 || bytes[0] !== CTRL_A) return { error: "missing MARK (0x01) at the start" };
+  if (bytes.length < 2) return null; // waiting for LEN
+  const len = unchar(String.fromCharCode(bytes[1]));
+  const totalAfterMark = 1 + len; // LEN + the rest (SEQ+TYPE+DATA+CHECK)
+  if (bytes.length < 1 + totalAfterMark) return null; // not fully arrived yet
+  const seqCh = String.fromCharCode(bytes[2]);
+  const typeCh = String.fromCharCode(bytes[3]);
+  const dataEnd = 1 + totalAfterMark - 1; // end of DATA, the last byte is CHECK (type 1 = 1 char)
+  const dataBytes = bytes.slice(4, dataEnd);
+  const data = String.fromCharCode(...dataBytes);
+  const checkCh = String.fromCharCode(bytes[dataEnd]);
+  const expected = checksumType1(Array.from(String.fromCharCode(bytes[1]) + seqCh + typeCh + data).map(c => c.charCodeAt(0)));
+  return {
+    seq: unchar(seqCh),
+    type: typeCh,
+    data,
+    checkOk: checkCh === expected,
+    checkReceived: checkCh,
+    checkExpected: expected,
+    consumed: 1 + totalAfterMark, // doesn't consume END (CR) – that's just discarded if present
+  };
+}
+
+/* =========================================================================
+ * Web Serial – transport
+ * ========================================================================= */
+
+let port = null;
+let reader = null;
+let writer = null;
+let seqCounter = 0;
+let rxBuffer = new Uint8Array(0);
+
+// Simple packet queue + waiters, so the GET flow can "await" the next
+// received packet while readLoop() keeps running in the background and
+// filling the queue.
+let packetQueue = [];
+let packetWaiters = [];
+function pushPacket(pkt) {
+  if (packetWaiters.length) {
+    const resolve = packetWaiters.shift();
+    resolve(pkt);
+  } else {
+    packetQueue.push(pkt);
+  }
+}
+function resetPacketQueue() {
+  packetQueue = [];
+  packetWaiters = [];
+}
+function waitForPacket(timeoutMs) {
+  return new Promise((resolve, reject) => {
+    if (packetQueue.length) {
+      resolve(packetQueue.shift());
+      return;
+    }
+    const timer = setTimeout(() => {
+      const idx = packetWaiters.indexOf(resolver);
+      if (idx >= 0) packetWaiters.splice(idx, 1);
+      reject(new Error(`timeout (${timeoutMs} ms) – no response from the calculator`));
+    }, timeoutMs);
+    const resolver = (pkt) => { clearTimeout(timer); resolve(pkt); };
+    packetWaiters.push(resolver);
+  });
+}
+
+const $ = (id) => document.getElementById(id);
+const logEl = $("log");
+
+function log(cls, prefix, text) {
+  const ts = new Date().toLocaleTimeString("en-US", { hour12: false }) + "." + String(new Date().getMilliseconds()).padStart(3, "0");
+  const div = document.createElement("div");
+  div.className = "line " + cls;
+  div.innerHTML = `<span class="ts">${ts}</span><b>${prefix}</b> ${escapeHtml(text)}`;
+  logEl.appendChild(div);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function isDetailedLog() {
+  const el = $("detailedLog");
+  return !!el && el.checked;
+}
+// Same as log(), but only writes when "Detailed log" is on – for the raw
+// byte-by-byte RX dump, bytes discarded outside a packet, and periodic
+// NAK notices (the calculator uses them just to say it's waiting for a
+// Send-Init; on its own that means nothing, and during a longer wait it
+// just floods the log).
+function logDetail(cls, prefix, text) {
+  if (isDetailedLog()) log(cls, prefix, text);
+}
+function escapeHtml(s) {
+  return s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
+}
+
+function hexDump(bytes) {
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, "0")).join(" ");
+}
+function asciiDump(bytes) {
+  return Array.from(bytes).map((b) => (b >= 32 && b < 127 ? String.fromCharCode(b) : "·")).join("");
+}
+
+function concatBytes(a, b) {
+  const out = new Uint8Array(a.length + b.length);
+  out.set(a, 0);
+  out.set(b, a.length);
+  return out;
+}
+
+function setConnected(isConnected) {
+  $("dot").classList.toggle("on", isConnected);
+  $("statusText").textContent = isConnected ? "Connected" : "Disconnected";
+  $("btnConnect").disabled = isConnected;
+  $("btnFinish").disabled = !isConnected;
+  $("btnDisconnect").disabled = !isConnected;
+  $("btnGet").disabled = !isConnected;
+  $("btnRecv").disabled = !isConnected;
+  $("btnList").disabled = !isConnected;
+  $("btnHome").disabled = !isConnected;
+  $("btnPut").disabled = !isConnected;
+  $("btnUp").disabled = !isConnected;
+  $("btnCrdir").disabled = !isConnected;
+}
+
+async function connect() {
+  if (!("serial" in navigator)) {
+    log("t-err", "[ERROR]", "The Web Serial API isn't available in this browser. Use Chrome or Edge on desktop.");
+    return;
+  }
+  try {
+    port = await navigator.serial.requestPort();
+    const baudRate = parseInt($("baud").value, 10);
+    await port.open({ baudRate, dataBits: 8, stopBits: 1, parity: "none", flowControl: "none" });
+    log("t-info", "[INFO]", `Port opened, ${baudRate} baud, 8N1, no flow control.`);
+    setConnected(true);
+    seqCounter = 0;
+    rxBuffer = new Uint8Array(0);
+    readLoop();
+    // Auto-load the current directory right after connecting, so there's
+    // something to see immediately instead of a blank screen and a silent
+    // log until the user clicks "List files" themselves. listDirectory()
+    // has its own try/catch and already reports its own errors, so a
+    // failure here (e.g. the calculator's Kermit server isn't actually
+    // running yet) just logs as usual rather than looking like a failed
+    // connection.
+    await listDirectory();
+  } catch (err) {
+    log("t-err", "[ERROR]", "Connection failed: " + err.message);
+  }
+}
+
+async function readLoop() {
+  reader = port.readable.getReader();
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      if (value && value.length) {
+        logDetail("t-rx", "[RX]", `${value.length} B  hex: ${hexDump(value)}  ascii: ${asciiDump(value)}`);
+        rxBuffer = concatBytes(rxBuffer, value);
+        processBuffer();
+      }
+    }
+  } catch (err) {
+    log("t-err", "[ERROR]", "Read error: " + err.message);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function processBuffer() {
+  // Find MARK, try to parse a packet, or wait for more data if needed.
+  while (true) {
+    const markIdx = rxBuffer.indexOf(CTRL_A);
+    if (markIdx === -1) {
+      if (rxBuffer.length) {
+        logDetail("t-warn", "[WARN]", `${rxBuffer.length} B outside a packet (no MARK) – discarded: ${asciiDump(rxBuffer)}`);
+      }
+      rxBuffer = new Uint8Array(0);
+      return;
+    }
+    if (markIdx > 0) {
+      rxBuffer = rxBuffer.slice(markIdx); // discard noise before MARK
+    }
+    const result = tryParsePacket(rxBuffer);
+    if (result === null) return; // waiting for the rest of the packet
+    if (result.error) {
+      log("t-err", "[ERROR]", result.error);
+      rxBuffer = rxBuffer.slice(1);
+      continue;
+    }
+    let after = rxBuffer.slice(result.consumed);
+    if (after.length && after[0] === CR) after = after.slice(1); // discard END
+
+    decodeAndLog(result);
+    rxBuffer = after;
+  }
+}
+
+function decodeAndLog(pkt) {
+  const typeName = packetTypeName(pkt.type);
+  const checkStatus = pkt.checkOk ? "OK" : `MISMATCH (received "${pkt.checkReceived}", expected "${pkt.checkExpected}")`;
+  // Under normal operation NAK is a periodic, uninteresting message (the
+  // calculator is just saying "I'm waiting for a Send-Init") – without
+  // Detailed log on, the app doesn't print it at all, to keep the log from
+  // flooding. Detection/retry logic on it obviously still works
+  // (pushPacket() below is always called).
+  const logFn = pkt.type === "N" ? logDetail : log;
+  logFn("t-decoded", "[PACKET]", `seq=${pkt.seq}  type=${pkt.type} (${typeName})  checksum: ${checkStatus}`);
+
+  if (pkt.type === "S") {
+    const fields = parseSendInitData(pkt.data);
+    log("t-decoded", "  →", `MAXL=${fields.MAXL}  TIMO=${fields.TIMO}s  NPAD=${fields.NPAD}  EOL=${fields.EOL}  QCTL='${fields.QCTL}'` +
+      (fields.QBIN ? `  QBIN='${fields.QBIN}'` : "") +
+      (fields.CHKT ? `  CHKT=${fields.CHKT}` : "") +
+      (fields.REPT ? `  REPT=${fields.REPT}` : ""));
+    log("t-info", "[INFO]", "The calculator responded to Send-Init – the server is alive and negotiated parameters. Handshake complete.");
+  } else if (pkt.type === "E") {
+    log("t-err", "  →", `Error message from the calculator: "${unquoteText(pkt.data)}"`);
+  } else if (pkt.type === "Y") {
+    log("t-info", "  →", pkt.data ? `ACK with data: "${unquoteText(pkt.data)}"` : "ACK (empty)");
+  } else if (pkt.type === "N") {
+    logDetail("t-warn", "  →", "NAK – the calculator is asking for the packet to be resent.");
+  } else {
+    log("t-decoded", "  →", `data (raw): "${pkt.data}"`);
+  }
+  pushPacket(pkt);
+}
+
+async function sendPacket(bytes, description) {
+  if (!port || !port.writable) {
+    log("t-err", "[ERROR]", "Port isn't open.");
+    return;
+  }
+  writer = port.writable.getWriter();
+  try {
+    await writer.write(bytes);
+    log("t-tx", "[TX]", `${description}  hex: ${hexDump(bytes)}  ascii: ${asciiDump(bytes)}`);
+  } catch (err) {
+    log("t-err", "[ERROR]", "Write error: " + err.message);
+  } finally {
+    writer.releaseLock();
+  }
+}
+
+// Sends a Send-Init and waits for an ACK (Y). If the calculator sends a NAK
+// instead (typically because it hadn't finished "opening its ears" again
+// after the previous transfer – see architektura.md, the tests with the
+// idle-NAK loop), it just resends the Send-Init – exactly what a NAK means
+// in the Kermit protocol ("I didn't get a valid packet, send it again").
+// Without this retry, the app used to just report the error and give up,
+// even though waiting/retrying would have been enough (observed with a
+// chained CD → LIST, where the Send-Init arrived at the calculator too
+// soon after the previous transfer's Break).
+//
+// POLL_MS: the app used to wait the full `timeoutMs` (15 s) for a response
+// and just passively wait for the calculator's own periodic NAK (~5 s in
+// testing) – meanwhile the app did nothing. Now it waits only briefly
+// (1.5 s) and if nothing arrives, it actively resends the Send-Init itself,
+// instead of waiting for the calculator's own (slower, unpredictable)
+// cycle. Retransmitting the Send-Init is harmless (idempotent), so this
+// just shortens the typical delay after CD/PURGE from ~5 s down to roughly
+// 1.5-3 s, without compromising reliability.
+async function sendSendInitAndAwaitAck(seq, tag, timeoutMs) {
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+  const MAX_RETRIES = 8;
+  const POLL_MS = 1500;
+  await sendPacket(buildSendInit(seq, { maxl, timo }), `${tag}: Send-Init (seq=${seq})`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let resp;
+    try {
+      resp = await waitForPacket(Math.min(POLL_MS, timeoutMs));
+    } catch (err) {
+      logDetail("t-warn", tag, `No response to Send-Init within ${POLL_MS} ms – retrying, rather than waiting for the calculator's own NAK cycle (attempt ${attempt}/${MAX_RETRIES}).`);
+      await sendPacket(buildSendInit(seq, { maxl, timo }), `${tag}: Send-Init again (seq=${seq})`);
+      continue;
+    }
+    if (resp.type === "Y") return resp;
+    if (resp.type === "N") {
+      logDetail("t-warn", tag, `The calculator sent a NAK instead of an ACK to Send-Init (probably not ready yet after the previous transfer) – retrying Send-Init (attempt ${attempt}/${MAX_RETRIES}).`);
+      await sendPacket(buildSendInit(seq, { maxl, timo }), `${tag}: Send-Init again (seq=${seq})`);
+      continue;
+    }
+    throw new Error(`Expected an ACK (Y) to Send-Init, got "${resp.type}".`);
+  }
+  throw new Error("The calculator repeatedly failed to respond to (or NAKed) Send-Init, giving up.");
+}
+
+// "Reset connection" – manual communication recovery, mainly useful after
+// an error or an interrupted transfer, when the app and the calculator
+// might not agree on the current state. Sends a fresh Send-Init (same as
+// every other operation) followed immediately by a Break (B) on the same
+// seq – this reliably returns the calculator to the idle "waiting for
+// Send-Init" state, whatever state it was in before. This does NOT turn
+// off the Kermit server on the calculator (that keeps running – only this
+// particular cycle ends) – renamed from "End server", since that name was
+// misleading.
+//
+// Without this initial Send-Init, the app used to send a bare B with no
+// context (outside any ongoing handshake), and the calculator rejected it
+// as "Invalid Server Cmd." – GET/LIST/CD/PURGE each cleanly finish their
+// own transfer (the calculator itself initiates the B/ACK), so after them
+// there was nothing left to "interrupt".
+async function sendFinish() {
+  resetPacketQueue();
+  seqCounter = 0;
+  const TIMEOUT_MS = 15000;
+  try {
+    const seq = seqCounter; // 0
+    await sendSendInitAndAwaitAck(seq, "[RESET]", TIMEOUT_MS);
+    await sendPacket(buildPacket(seq, "B", ""), `Reset: Break (seq=${seq})`);
+    const resp = await waitForPacket(TIMEOUT_MS);
+    if (resp.type === "Y") {
+      log("t-info", "[RESET]", "The calculator confirmed the reset – the Kermit server stays running and waits for the next Send-Init.");
+    } else {
+      log("t-warn", "[RESET]", `Expected an ACK to Break, got "${resp.type}".`);
+    }
+  } catch (err) {
+    log("t-err", "[RESET]", "Connection reset failed: " + err.message);
+  }
+}
+
+/* =========================================================================
+ * FILE RECEIVE – shared loop for S/F/D/Z/B, used both by the active GET
+ * (request via an R packet) and by passively waiting for a
+ * calculator-initiated SEND. The caller must already have cleared the
+ * packet queue (resetPacketQueue).
+ *
+ * Fix from an earlier test: our earlier attempt at a remote GET was
+ * rejected by the calculator with "Invalid Server Cmd." – it turned out
+ * (by comparing against the reference `kermit` tool, see architektura.md
+ * chapter 11) that the reason wasn't an unsupported R packet, but the
+ * WRONG SEQ NUMBER: after Send-Init (always seq=0), numbering does NOT
+ * reset via increment – the next packet (whether R or anything else)
+ * should again be seq=0. We had accidentally bumped the sequence to 1.
+ * `kermit`'s GET C succeeded with R at seq=0 with no error.
+ *
+ * Note: packet parsing (tryParsePacket) currently only accounts for block
+ * check type 1 – that's what the calculator offered in both tests. If some
+ * transfer offers a different type, we'll see it below as a warning.
+ * ========================================================================= */
+
+// `virtualKind`: LIST/CD/PURGE don't transfer a real file – the calculator
+// answers with the same "virtual file" S→ACK→X→D→Z→B sequence as a real
+// GET, but there's no F packet and so no real file name (fileName stays
+// "(unknown)"). Passing a human description here (e.g. "the folder
+// listing") makes the completion log line describe what was actually
+// received instead of a misleading `File "(unknown)" complete: N bytes.`
+// A real file transfer (GET/RECV) leaves this undefined and keeps the
+// original "File "<name>" complete" wording.
+async function runReceiveLoop(timeoutMs, logTag, virtualKind) {
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+
+  const fileBytes = [];
+  let fileName = "(unknown)";
+  let sawData = false;
+  let done = false;
+  let guard = 0;
+
+  while (!done) {
+    if (++guard > 500) throw new Error("Packet count safety limit exceeded, aborting.");
+    const pkt = await waitForPacket(timeoutMs);
+
+    switch (pkt.type) {
+      case "N": {
+        // The calculator may keep NAKing periodically until it starts
+        // sending on its own (passive mode) – that's normal, just keep
+        // waiting.
+        logDetail("t-info", logTag, `(still just NAK seq=${pkt.seq}, waiting)`);
+        break;
+      }
+      case "S": {
+        const params = parseSendInitData(pkt.data);
+        if (params.CHKT && params.CHKT !== "1") {
+          log("t-warn", logTag, `The calculator is offering block check type ${params.CHKT} for this transfer, but this tool only handles type 1 – if the checksums of later packets don't match, this is why.`);
+        }
+        await sendPacket(buildPacket(pkt.seq, "Y", buildSendInitData({ maxl, timo })), `${logTag}: ACK to the calculator's Send-Init (seq=${pkt.seq})`);
+        break;
+      }
+      case "F": {
+        fileName = hp48ToUnicode(String.fromCharCode(...unquoteToBytes(pkt.data)));
+        log("t-info", logTag, `The calculator is sending a file named "${fileName}".`);
+        await sendPacket(buildPacket(pkt.seq, "Y", ""), `${logTag}: ACK File-Header (seq=${pkt.seq})`);
+        break;
+      }
+      case "D": {
+        const bytes = unquoteToBytes(pkt.data);
+        fileBytes.push(...bytes);
+        sawData = true;
+        await sendPacket(buildPacket(pkt.seq, "Y", ""), `${logTag}: ACK Data (seq=${pkt.seq}, +${bytes.length} B, total ${fileBytes.length} B)`);
+        break;
+      }
+      case "Z": {
+        await sendPacket(buildPacket(pkt.seq, "Y", ""), `${logTag}: ACK EOF (seq=${pkt.seq})`);
+        if (virtualKind) {
+          log("t-info", logTag, `Received ${virtualKind} (${fileBytes.length} bytes).`);
+        } else {
+          log("t-info", logTag, `File "${fileName}" complete: ${fileBytes.length} bytes.`);
+        }
+        break;
+      }
+      case "B": {
+        await sendPacket(buildPacket(pkt.seq, "Y", ""), `${logTag}: ACK Break (seq=${pkt.seq}) – transfer complete.`);
+        done = true;
+        break;
+      }
+      case "E": {
+        throw new Error(`The calculator returned an error: "${unquoteText(pkt.data)}"`);
+      }
+      default: {
+        // The calculator also uses non-standard packet types (see
+        // architektura.md, chapter 11 – for REMOTE DIRECTORY we ran into
+        // type "X" instead of "F" for the "virtual file" header). We don't
+        // know exactly what they mean, but the reference `kermit` replied
+        // with a plain empty ACK and the transfer continued – we do the
+        // same as a safe generic fallback, so the exchange doesn't get
+        // stuck.
+        log("t-warn", logTag, `Unknown packet type "${pkt.type}" (seq=${pkt.seq}) – sending a plain ACK and continuing.`);
+        await sendPacket(buildPacket(pkt.seq, "Y", ""), `${logTag}: ACK for unknown type "${pkt.type}" (seq=${pkt.seq})`);
+      }
+    }
+  }
+
+  if (!sawData) {
+    log("t-warn", logTag, "No data packet arrived.");
+  }
+  return { fileName, fileBytes };
+}
+
+// Active GET: we initiate (Send-Init, then R with the variable name at the
+// SAME seq as Send-Init – fix described above).
+// `nameOverride` – when the app calls GET on the user's behalf (the 📥 icon
+// next to an entry in the directory listing), this exact raw (not
+// Unicode-mapped) value is passed in; otherwise it's taken from the text
+// field next to the "Download" button.
+async function getFile(nameOverride) {
+  const filename = (nameOverride !== undefined ? nameOverride : $("getFilename").value).trim();
+  if (!filename) {
+    log("t-err", "[ERROR]", "Enter a variable name to download.");
+    return;
+  }
+  $("btnGet").disabled = true;
+  $("btnRecv").disabled = true;
+  $("downloadArea").innerHTML = "";
+  resetPacketQueue();
+  seqCounter = 0;
+
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+  const TIMEOUT_MS = 15000;
+
+  try {
+    log("t-info", "[GET]", `Starting download of variable "${hp48ToUnicode(filename)}".`);
+
+    const seq = seqCounter; // 0
+    await sendSendInitAndAwaitAck(seq, "[GET]", TIMEOUT_MS);
+
+    // Important: R goes on the SAME seq as Send-Init (see comment above),
+    // so seqCounter does NOT get incremented. The name is quoted through
+    // quoteText(), same as with the C packet (see sendHostCommand), in
+    // case it contains a byte that needs control-quoting (see the ΣPAR
+    // bug).
+    await sendPacket(buildPacket(seq, "R", quoteText(filename)), `GET: request for file "${hp48ToUnicode(filename)}" (R, seq=${seq})`);
+
+    const { fileName, fileBytes } = await runReceiveLoop(TIMEOUT_MS, "[GET]");
+    offerDownload(fileName, fileBytes);
+  } catch (err) {
+    log("t-err", "[GET]", "Download failed: " + err.message);
+  } finally {
+    $("btnGet").disabled = !port;
+    $("btnRecv").disabled = !port;
+  }
+}
+
+// Passive fallback: we don't send anything, just wait for the calculator to
+// initiate a SEND on its own (the user manually puts a name on the stack on
+// the calculator and starts SEND).
+async function receiveFile() {
+  $("btnGet").disabled = true;
+  $("btnRecv").disabled = true;
+  $("downloadArea").innerHTML = "";
+  resetPacketQueue();
+  const TIMEOUT_MS = (parseInt($("recvTimeout").value, 10) || 60) * 1000;
+
+  try {
+    log("t-info", "[RECV]", `Waiting up to ${Math.round(TIMEOUT_MS / 1000)} s for the calculator to start sending on its own. On the calculator, put the object's name on the stack now and start SEND.`);
+    const { fileName, fileBytes } = await runReceiveLoop(TIMEOUT_MS, "[RECV]");
+    offerDownload(fileName, fileBytes);
+  } catch (err) {
+    log("t-err", "[RECV]", "Receive failed: " + err.message);
+  } finally {
+    $("btnGet").disabled = !port;
+    $("btnRecv").disabled = !port;
+  }
+}
+
+/* =========================================================================
+ * FILE LIST – REMOTE DIRECTORY
+ *
+ * Verified with the reference `kermit` tool (see architektura.md, chapter
+ * 11): "remote directory" sends a Generic packet (type G) with DATA="D", at
+ * the SAME seq as Send-Init (same fix as for R/GET). The calculator
+ * responds with the exact same "virtual file" sequence as GET
+ * (S → ACK → header → D → D → ... → Z → B) – except the header packet had
+ * an unusual type "X" instead of "F" in testing and is empty (no filename),
+ * which our runReceiveLoop handles via its generic fallback (ACKs it and
+ * moves on).
+ *
+ * Text format of the response (confirmed on hardware):
+ *   { HOME DEV } 124170.5              <- path (directories from root) + free memory
+ *   Y 16 Real Number 59031             <- name, size, type, CRC
+ *   C 42 Program 59667
+ *   DEV 1429.5 Directory 44832         <- subdirectories have type "Directory"
+ * ========================================================================= */
+
+function parseDirectoryListing(text) {
+  const lines = text.split(/\r\n|\r|\n/).map((l) => l.trim()).filter(Boolean);
+  if (!lines.length) return { path: [], freeMemory: null, entries: [] };
+
+  const header = lines[0].match(/^\{\s*(.*?)\s*\}\s*([\d.]+)$/);
+  const path = header ? header[1].split(/\s+/).filter(Boolean) : [];
+  const freeMemory = header ? header[2] : null;
+
+  const entries = [];
+  for (const line of lines.slice(1)) {
+    const m = line.match(/^(\S+)\s+([\d.]+)\s+(.+?)\s+(\d+)$/);
+    if (!m) {
+      log("t-warn", "[LIST]", `Couldn't parse line, skipping: "${line}"`);
+      continue;
+    }
+    entries.push({ name: m[1], size: m[2], type: m[3], crc: m[4], isDir: m[3] === "Directory" });
+  }
+  return { path, freeMemory, entries };
+}
+
+function escapeAttr(s) {
+  return escapeHtml(s).replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+}
+
+const ICON_FOLDER = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/></svg>';
+const ICON_FILE = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/></svg>';
+const ICON_DOWNLOAD = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>';
+const ICON_TRASH = '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m3 0-1 14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2L4 6"/></svg>';
+const ICON_CHEVRON = '<svg class="icon sep" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>';
+
+// Renders the breadcrumb in the main toolbar (#breadcrumb) from the
+// directory path returned alongside the listing, e.g. ["HOME","GMS","TEST"].
+function renderBreadcrumb(path) {
+  const bc = $("breadcrumb");
+  if (!bc) return;
+  bc.innerHTML = path
+    .map((seg, i) => {
+      const cls = i === path.length - 1 ? "seg current" : "seg";
+      return `<span class="${cls}">${escapeHtml(seg)}</span>`;
+    })
+    .join(ICON_CHEVRON);
+}
+
+function renderFileList(listing) {
+  const area = $("fileListArea");
+  renderBreadcrumb(listing.path);
+  const rows = listing.entries
+    .map((e) => {
+      // IMPORTANT: e.name is the raw HP-48 byte string (see listDirectory).
+      // The onclick handlers (enterDirectory/purgeVariable) must receive the
+      // RAW e.name (via escapeAttr, unchanged) – the app reuses it when
+      // building the RPL command, and that has to match what the calculator
+      // knows. hp48ToUnicode() is only used where the text is just READ
+      // (the visible name in the column, the title tooltip).
+      const displayName = hp48ToUnicode(e.name);
+      const clickable = e.isDir ? ` onclick="enterDirectory('${escapeAttr(e.name)}')" style="cursor:pointer" title="Enter ${escapeAttr(displayName)}"` : "";
+      // Downloading (GET) only makes sense for files/variables, not
+      // subdirectories (we haven't tested a Kermit R packet on a
+      // directory, and don't expect it to do anything meaningful).
+      const getBtn = e.isDir
+        ? ""
+        : `<button class="icon-btn ghost" onclick="event.stopPropagation(); getFile('${escapeAttr(e.name)}')" title="Download ${escapeAttr(displayName)}">${ICON_DOWNLOAD}</button> `;
+      const delBtn = `<button class="icon-btn ghost" onclick="event.stopPropagation(); purgeVariable('${escapeAttr(e.name)}')" title="Delete ${escapeAttr(displayName)}" style="color:var(--err);">${ICON_TRASH}</button>`;
+      return `<tr class="${e.isDir ? "is-dir" : ""}"${clickable}><td class="name">${e.isDir ? ICON_FOLDER : ICON_FILE} ${escapeHtml(displayName)}</td><td>${escapeHtml(e.size)}</td><td>${escapeHtml(e.type)}</td><td>${escapeHtml(e.crc)}</td><td class="actions">${getBtn}${delBtn}</td></tr>`;
+    })
+    .join("");
+  area.innerHTML = `
+    <div class="free-mem">Free memory: ${escapeHtml(String(listing.freeMemory))} B &middot; click a folder to enter it, or use Home/Up in the toolbar</div>
+    <table>
+      <thead><tr><th>Name</th><th>Size</th><th>Type</th><th>CRC</th><th></th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="5">(empty directory)</td></tr>'}</tbody>
+    </table>
+  `;
+}
+
+async function listDirectory() {
+  $("btnGet").disabled = true;
+  $("btnRecv").disabled = true;
+  $("btnList").disabled = true;
+  $("btnHome").disabled = true;
+  $("btnUp").disabled = true;
+  $("btnPut").disabled = true;
+  $("btnCrdir").disabled = true;
+  $("downloadArea").innerHTML = "";
+  resetPacketQueue();
+  seqCounter = 0;
+
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+  const TIMEOUT_MS = 15000;
+
+  try {
+    log("t-info", "[LIST]", "Requesting the file list (REMOTE DIRECTORY).");
+
+    const seq = seqCounter; // 0
+    await sendSendInitAndAwaitAck(seq, "[LIST]", TIMEOUT_MS);
+
+    // G packet, DATA="D" (Directory) – at the same seq as Send-Init.
+    await sendPacket(buildPacket(seq, "G", "D"), `LIST: list request (G/D, seq=${seq})`);
+
+    const { fileBytes } = await runReceiveLoop(TIMEOUT_MS, "[LIST]", "the folder's variable/object listing");
+    // IMPORTANT: the text is NOT mapped through hp48ToUnicode() here –
+    // names in `listing.entries` must stay as raw HP-48 bytes, since
+    // they get reused later when entering a directory / deleting (see
+    // sendHostCommand). Mapping to Unicode only happens in
+    // renderFileList(), purely for display.
+    const text = String.fromCharCode(...fileBytes);
+    const listing = parseDirectoryListing(text);
+    log("t-info", "[LIST]", `Loaded ${listing.entries.length} entries, path { ${listing.path.join(" ")} }.`);
+    renderFileList(listing);
+  } catch (err) {
+    log("t-err", "[LIST]", "Failed to load the file list: " + err.message);
+  } finally {
+    $("btnGet").disabled = !port;
+    $("btnRecv").disabled = !port;
+    $("btnList").disabled = !port;
+    $("btnHome").disabled = !port;
+    $("btnUp").disabled = !port;
+    $("btnPut").disabled = !port;
+    $("btnCrdir").disabled = !port;
+  }
+}
+
+/* =========================================================================
+ * DIRECTORY NAVIGATION – REMOTE HOST { name } EVAL / HOME / UPDIR
+ *
+ * Verified with the reference `kermit` tool (see architektura.md, chapter
+ * 11, eighth and twelfth tests): `remote cd <name>` is rejected by the
+ * calculator ("Invalid Server Cmd."), but `remote host <rpl-text>` works.
+ * On the wire it is NOT a Generic (G) packet like REMOTE DIRECTORY – it's
+ * a separate packet type "C" (Command), at the same seq as Send-Init,
+ * whose DATA is the RPL text itself, unchanged, exactly as if it had been
+ * typed on the calculator's command line and confirmed with Enter (e.g.
+ * "{ DEV } EVAL", "HOME", "UPDIR", with no verb prefix). A literal like
+ * `{ DEV }` needs the trailing EVAL (typing it alone just pushes the list
+ * object); a bare command name like HOME or UPDIR already runs itself and
+ * must NOT get an EVAL appended – see goHome()'s comment for the bug this
+ * caused. The calculator replies with the same "virtual file" sequence as
+ * GET/LIST (S → ACK → X → D → Z → B); the D packet carries the text stack
+ * dump that would otherwise show up on the calculator/in C-Kermit (e.g.
+ * "1:            1", or an "Error: ..." headline on failure). For now we
+ * just log the content of that response – we don't need it for anything
+ * else beyond error detection; we verify success by simply reloading the
+ * directory listing after the command.
+ * ========================================================================= */
+
+// Generic function for "REMOTE HOST <rpl-text>" – used both by navigation
+// (changeDirectory) and by deletion (purgeVariable), because on the wire
+// it's exactly the same mechanism (packet type C, same seq as Send-Init,
+// response as a "virtual file") – only the text sent and the log/error
+// labels differ.
+async function sendHostCommand(rplText, label, logTag, errorPrefix) {
+  $("btnGet").disabled = true;
+  $("btnRecv").disabled = true;
+  $("btnList").disabled = true;
+  $("btnHome").disabled = true;
+  $("btnUp").disabled = true;
+  $("btnPut").disabled = true;
+  $("btnCrdir").disabled = true;
+  resetPacketQueue();
+  seqCounter = 0;
+
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+  const TIMEOUT_MS = 15000;
+
+  try {
+    log("t-info", logTag, `${label} – sending "${hp48ToUnicode(rplText)}".`);
+
+    const seq = seqCounter; // 0
+    await sendSendInitAndAwaitAck(seq, logTag, TIMEOUT_MS);
+
+    // Packet type C (Command), DATA = RPL text – at the same seq as
+    // Send-Init. IMPORTANT: rplText can contain raw HP-48 bytes (128-159,
+    // see HP48_SPECIAL_CHARS) exactly as they arrived from the directory
+    // listing – text that has already been run through hp48ToUnicode()
+    // must NEVER end up here, because that returns Unicode characters
+    // outside the 0-255 range (e.g. ∑ = U+2211), which would simply get
+    // truncated to the low byte when building the packet
+    // (String.fromCharCode → Uint8Array) and send completely different
+    // (broken) data – this exact bug is what caused '∑PAR' PURGE to fail.
+    // That's why rplText gets quoted through quoteText() before sending
+    // (mirroring PUT), so raw bytes 128-159 get sent safely the same way
+    // as everywhere else.
+    await sendPacket(buildPacket(seq, "C", quoteText(rplText)), `${logTag}: command (C, seq=${seq}): "${hp48ToUnicode(rplText)}"`);
+
+    const { fileBytes } = await runReceiveLoop(TIMEOUT_MS, logTag, "the calculator's status response");
+    const responseText = hp48ToUnicode(unquoteText(String.fromCharCode(...fileBytes))).trim();
+
+    // The response is always just a stack snapshot (see the comment on
+    // extractHp48ErrorHeadline) – when it starts with "Error:", the
+    // command actually failed on the calculator, even though the Kermit
+    // transfer itself completed fine (no E packet, no NAK). The app used
+    // to just silently log it as a normal info message – now it detects
+    // this and shows it as an error.
+    if (/^Error:/i.test(responseText)) {
+      const headline = extractHp48ErrorHeadline(responseText);
+      log("t-err", logTag, `The calculator rejected the command: "${headline}"`);
+      await listDirectory(); // nothing changed, but keep the app consistent
+      window.alert(`${label} failed:\n${headline}`);
+      return;
+    }
+
+    log("t-info", logTag, `Calculator response: "${responseText}"`);
+
+    // Verify the result: reload the current directory listing so the user
+    // can see whether it actually changed (different path / a file gone).
+    await listDirectory();
+  } catch (err) {
+    log("t-err", logTag, `${errorPrefix}: ` + err.message);
+    $("btnGet").disabled = !port;
+    $("btnRecv").disabled = !port;
+    $("btnList").disabled = !port;
+    $("btnHome").disabled = !port;
+    $("btnUp").disabled = !port;
+    $("btnPut").disabled = !port;
+    $("btnCrdir").disabled = !port;
+  }
+}
+
+async function changeDirectory(rplText, label) {
+  await sendHostCommand(rplText, label, "[CD]", "Directory change failed");
+}
+
+// Enter the subdirectory named `name` (click on a Directory-type row in the listing).
+async function enterDirectory(name) {
+  await changeDirectory(`{ ${name} } EVAL`, `Entering "${name}"`);
+}
+
+// Return all the way to HOME. Bare `HOME`, WITHOUT `EVAL` – like UPDIR
+// below, HOME is a command name, not a literal, so typing it alone already
+// runs it (same reasoning as goUp()). "HOME EVAL" (the original guess,
+// by analogy with `{ name } EVAL`) is WRONG: HOME runs and leaves nothing
+// on the stack, so the following EVAL then fails with
+// "Too Few Arguments: Empty Stack" – on real hardware this was masked
+// during the original test only because a stray value happened to be
+// left on the stack from unrelated experiments (see the architektura.md
+// correction to the eighth test); on a clean stack it reliably errors,
+// as confirmed live in the app. Fixed to match goUp()'s bare form.
+async function goHome() {
+  await changeDirectory("HOME", "Returning to HOME");
+}
+
+// Go up one level – unlike `{ name } EVAL`, this sends just `UPDIR`,
+// WITHOUT `EVAL`. Confirmed by the user via `kermit` ("remote host UPDIR"
+// – works). Most likely explanation (inferred, not confirmed): the DATA
+// in a C packet behaves as if it were typed on the calculator's command
+// line and sent with Enter – a command name like UPDIR (or HOME) runs
+// itself, whereas `{ DEV }` is just a literal (a list) that would only
+// get pushed onto the stack without EVAL, which is why it's needed there.
+// On the wire it's the same mechanism (packet type C) as the rest of the
+// navigation, just different text.
+async function goUp() {
+  await changeDirectory("UPDIR", "Go up one level (UPDIR)");
+}
+
+/* =========================================================================
+ * DELETE FILE/VARIABLE – REMOTE HOST 'name' PURGE
+ *
+ * Confirmed by the user via `kermit` ("remote host 'text' PURGE" – works).
+ * Same mechanism as navigation (packet type C), just different RPL text:
+ * the name in single quotes (so it's sent as a symbolic name, not
+ * evaluated directly) followed by PURGE. No fresh packet trace – the
+ * mechanism is the same as UPDIR/HOME, just a different DATA value. An
+ * irreversible operation, so the app asks for confirmation before sending
+ * anything.
+ * ========================================================================= */
+async function purgeVariable(name) {
+  if (!window.confirm(`Really delete "${name}" on the calculator? This can't be undone.`)) {
+    log("t-info", "[DEL]", `Deleting "${name}" cancelled by the user.`);
+    return;
+  }
+  await sendHostCommand(`'${name}' PURGE`, `Deleting "${name}"`, "[DEL]", "Deletion failed");
+}
+
+/* =========================================================================
+ * CREATE DIRECTORY – REMOTE HOST 'name' CRDIR
+ *
+ * Same mechanism as PURGE/navigation (packet type C, same seq as
+ * Send-Init): the name in single quotes (a symbolic name, not evaluated
+ * directly) followed by CRDIR – standard HP-48 RPL for creating a new
+ * subdirectory under the current one. Not independently verified via the
+ * reference `kermit` tool first like the other REMOTE HOST commands were
+ * (UPDIR/HOME/PURGE) – it follows the same 'name' <VERB> pattern as PURGE,
+ * but that's inferred from the pattern, not confirmed on hardware yet.
+ * ========================================================================= */
+async function createDirectory() {
+  const name = $("newDirName").value.trim();
+  if (!name) {
+    log("t-err", "[MKDIR]", "Enter a name for the new folder.");
+    return;
+  }
+  await sendHostCommand(`'${name}' CRDIR`, `Creating folder "${name}"`, "[MKDIR]", "Folder creation failed");
+  $("newDirName").value = "";
+}
+
+/* =========================================================================
+ * SEND FILE (PUT) – computer→calculator direction
+ *
+ * Confirmed with the reference `kermit` tool (see architektura.md, chapter
+ * 11, tenth test): `send <file> <name>` is a plain, "textbook" Kermit
+ * transfer – NO seq trick like with R/G/C. Order: S (seq=0) → ACK → F
+ * (seq=1, DATA=name) → ACK → D (seq=2, 3, ... file content) → ACK →
+ * Z (seq=N) → ACK → B (seq=N+1) → ACK. The seq number increments normally
+ * after every packet, just like in textbook Kermit.
+ *
+ * Checksum: the calculator's ACK to Send-Init simply confirms whatever we
+ * proposed (confirmed across every test – the ACK always just echoes back
+ * the proposed values, never enforces its own). Since the app's Send-Init
+ * still stubbornly offers CHKT='1' (same as for GET/LIST/CD), we expect the
+ * F/D/Z packets to use the same 1-byte checksum as everywhere else –
+ * unlike `kermit`, which proposes CHKT=3 itself and so ran 3-byte CRC
+ * checksums. This is, however, the first PUT from our own app, so it still
+ * needs to be confirmed on hardware.
+ *
+ * Quoting the outgoing data (quoteBytes) mirrors the decoding logic
+ * (unquoteToBytes) – control characters and the C1 range (128-159) get
+ * quoted, everything else goes raw. This too is so far only inferred from
+ * a single observation during a GET, not independently confirmed for
+ * sending – the first real test will show.
+ * ========================================================================= */
+
+function chunkBytes(bytes, maxRawChunk) {
+  const chunks = [];
+  for (let i = 0; i < bytes.length; i += maxRawChunk) {
+    chunks.push(bytes.slice(i, i + maxRawChunk));
+  }
+  return chunks.length ? chunks : [[]]; // send an empty file too, as a single (empty) D packet
+}
+
+async function sendFile() {
+  const fileInput = $("putFile");
+  const file = fileInput.files && fileInput.files[0];
+  if (!file) {
+    log("t-err", "[PUT]", "Pick a file to send first.");
+    return;
+  }
+  const asName = ($("putAsName").value || file.name).trim();
+  if (!asName) {
+    log("t-err", "[PUT]", "Enter the name to save the file under on the calculator.");
+    return;
+  }
+
+  $("btnGet").disabled = true;
+  $("btnRecv").disabled = true;
+  $("btnList").disabled = true;
+  $("btnHome").disabled = true;
+  $("btnUp").disabled = true;
+  $("btnPut").disabled = true;
+  $("btnCrdir").disabled = true;
+  resetPacketQueue();
+  seqCounter = 0;
+
+  const maxl = parseInt($("maxl").value, 10);
+  const timo = parseInt($("timo").value, 10);
+  const TIMEOUT_MS = 15000;
+
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    log("t-info", "[PUT]", `Starting upload of "${file.name}" as "${asName}" to the calculator (${buf.length} B).`);
+
+    let seq = seqCounter; // 0
+    await sendSendInitAndAwaitAck(seq, "[PUT]", TIMEOUT_MS);
+    seq = (seq + 1) & 0x3f;
+
+    // F (File Header) – file name, DATA gets quoted the same way as other
+    // packets (for ordinary names like "C2" quoting doesn't change anything).
+    await sendPacket(buildPacket(seq, "F", quoteBytes(Array.from(asName).map((c) => c.charCodeAt(0)))), `PUT: File-Header (F, seq=${seq}): "${asName}"`);
+    let resp = await waitForPacket(TIMEOUT_MS);
+    if (resp.type !== "Y") throw new Error(`Expected an ACK (Y) to File-Header, got "${resp.type}".`);
+    seq = (seq + 1) & 0x3f;
+
+    // Conservative estimate of the raw chunk size: worst case, every byte
+    // needs quoting (doubling its length), so we build in a safety margin
+    // to fit within MAXL even in the worst case.
+    const maxRawChunk = Math.max(1, Math.floor((maxl - 3) / 2));
+    const chunks = chunkBytes(Array.from(buf), maxRawChunk);
+
+    for (let i = 0; i < chunks.length; i++) {
+      const quoted = quoteBytes(chunks[i]);
+      await sendPacket(buildPacket(seq, "D", quoted), `PUT: Data (D, seq=${seq}, ${i + 1}/${chunks.length}, ${chunks[i].length} B)`);
+      resp = await waitForPacket(TIMEOUT_MS);
+      if (resp.type !== "Y") throw new Error(`Expected an ACK (Y) to Data (chunk ${i + 1}/${chunks.length}), got "${resp.type}".`);
+      seq = (seq + 1) & 0x3f;
+    }
+
+    // Z (EOF)
+    await sendPacket(buildPacket(seq, "Z", ""), `PUT: EOF (Z, seq=${seq})`);
+    resp = await waitForPacket(TIMEOUT_MS);
+    if (resp.type !== "Y") throw new Error(`Expected an ACK (Y) to EOF, got "${resp.type}".`);
+    seq = (seq + 1) & 0x3f;
+
+    // B (Break) – end of session.
+    await sendPacket(buildPacket(seq, "B", ""), `PUT: end (B, seq=${seq})`);
+    resp = await waitForPacket(TIMEOUT_MS);
+    if (resp.type !== "Y") throw new Error(`Expected an ACK (Y) to Break, got "${resp.type}".`);
+
+    log("t-info", "[PUT]", `Done – "${asName}" sent (${buf.length} B, ${chunks.length} data packets).`);
+    seqCounter = 0;
+    // Refresh the listing so the new/updated file shows up right away,
+    // same as CD/PURGE/CRDIR already do via sendHostCommand().
+    await listDirectory();
+  } catch (err) {
+    log("t-err", "[PUT]", "Upload failed: " + err.message);
+  } finally {
+    $("btnGet").disabled = !port;
+    $("btnRecv").disabled = !port;
+    $("btnList").disabled = !port;
+    $("btnHome").disabled = !port;
+    $("btnUp").disabled = !port;
+    $("btnPut").disabled = !port;
+    $("btnCrdir").disabled = !port;
+  }
+}
+
+function offerDownload(name, byteArray) {
+  const bytes = new Uint8Array(byteArray);
+  const preview = hexDump(bytes.slice(0, 16));
+  const asciiPreview = asciiDump(bytes.slice(0, 32));
+  log("t-decoded", "[GET]", `Preview of the first bytes: ${preview}${bytes.length > 16 ? " …" : ""}  (ascii: ${asciiPreview})`);
+
+  const blob = new Blob([bytes], { type: "application/octet-stream" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name || "file";
+  a.textContent = `Download "${name}" (${bytes.length} B)`;
+  a.style.color = "var(--ok)";
+  a.style.marginLeft = "8px";
+  const area = $("downloadArea");
+  area.innerHTML = "";
+  area.appendChild(a);
+
+  // Trigger the save immediately, without requiring the user to click the
+  // link above – the link stays visible only as a fallback (e.g. if the
+  // browser blocks the automatic click, or the user wants to save it again).
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+async function disconnect() {
+  try {
+    if (reader) { await reader.cancel().catch(() => {}); }
+    if (port) { await port.close(); }
+    log("t-info", "[INFO]", "Disconnected.");
+  } catch (err) {
+    log("t-err", "[ERROR]", "Error while disconnecting: " + err.message);
+  } finally {
+    port = null;
+    setConnected(false);
+  }
+}
+
+$("btnConnect").addEventListener("click", connect);
+$("btnFinish").addEventListener("click", sendFinish);
+$("btnDisconnect").addEventListener("click", disconnect);
+$("btnClear").addEventListener("click", () => { logEl.innerHTML = ""; });
+$("btnGet").addEventListener("click", getFile);
+$("btnRecv").addEventListener("click", receiveFile);
+$("btnList").addEventListener("click", listDirectory);
+$("btnHome").addEventListener("click", goHome);
+$("btnUp").addEventListener("click", goUp);
+$("btnPut").addEventListener("click", sendFile);
+$("btnCrdir").addEventListener("click", createDirectory);
+$("newDirName").addEventListener("keydown", (e) => { if (e.key === "Enter" && !$("btnCrdir").disabled) createDirectory(); });
+$("btnChooseFile").addEventListener("click", () => { $("putFile").click(); });
+$("putFile").addEventListener("change", () => {
+  const f = $("putFile").files && $("putFile").files[0];
+  if (f && !$("putAsName").value) $("putAsName").value = f.name;
+  $("chooseFileLabel").textContent = f ? f.name : "Choose file…";
+});
+
+log("t-info", "[INFO]", "Ready. On the calculator, start the Kermit server (I/O → SRVR → SERVE), then click Connect.");
+</script>
+</body>
+</html>
